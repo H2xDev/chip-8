@@ -1,8 +1,9 @@
-import { FONT } from "./font.js";
+import { FONT, HIRES_FONT } from "./font.js";
 import { defineInstructions } from "./instructions.js";
 
 const PROGRAM_ADDRESS = 0x200;
-const INSTRUCTIONS_PER_FRAME = 10;
+const SUBROUTINE_ADDRESS = 0x100;
+const used = [];
 
 const Registers = {
 	PC: 0x0,
@@ -73,6 +74,7 @@ export class Chip8 {
 		this.display.fill(0);
 		this.v.fill(0);
 		this.registers.K = 0xFFFF;
+        this.registers.SP = PROGRAM_ADDRESS + program.length;
 
 		this.#addToMemory(FONT);
 		this.#addToMemory(program, PROGRAM_ADDRESS);
@@ -119,8 +121,9 @@ export class Chip8 {
 
 	#beginLoop() {
 		this.registers.PC = PROGRAM_ADDRESS;
+        const instructionsPerFrame = Math.floor(this.frequency / 60);
 		this.interval = setInterval(() => {
-			for (let i = 0; i < INSTRUCTIONS_PER_FRAME; i++) this.#executeInstruction();
+			for (let i = 0; i < instructionsPerFrame; i++) this.#executeInstruction();
 		}, 1000 / this.frequency);
 		this.delayInterval = setInterval(this.#updateTimers.bind(this), 1000 / this.frequency);
 	}
@@ -157,9 +160,35 @@ export class Chip8 {
 		this.instructions[instructionKey](code);
 		this.registers.PC += 2;
 
-		if (this.registers.RD) this.#logDisplay();
-		if (this.registers.HR !== hiresMode) this.#trigger(Events.HIRES_MODE_CHANED, this.registers.HR);
+        if (!used.includes(instructionKey)) {
+            used.push(instructionKey);
+            console.log(`Used instruction: ${instructionKey}`);
+        }
+
+		if (this.registers.RD) {
+            this.#logDisplay();
+            this.registers.RD = 0;
+        }
+
+		if (this.registers.HR !== hiresMode) {
+            this.#addToMemory(this.registers.HR ? HIRES_FONT : FONT, 0x0);
+            this.#trigger(Events.HIRES_MODE_CHANED, this.registers.HR);
+        }
 	}
+
+    #logMemory(address = 0x00, length = this.memory.length - address, cols = 8) {
+        const memory = this.memory.slice(address, address + length);
+
+        for (let i = 0; i < memory.length; i += cols) {
+            const row = memory.slice(i, i + cols);
+            const hexRow = Array.from(row).map((byte) => byte.toString(16).padStart(2, '0')).join(' ');
+            console.log(
+                `0x${(address + i).toString(16).padStart(4, '0')}: ${hexRow}`,
+                // binary format
+                `| ${Array.from(row).map((byte) => byte.toString(2).padStart(8, '0')).join(' ')}`
+            );
+        }
+    }
 
 	/**
 	 * Writes a key value to the K registers
