@@ -55,15 +55,15 @@ export const defineInstructions = (r, m, d, v, f) => {
 		"00E0": () => (d.fill(0), r.RD = 1),
 		"00EE": () => {
             r.SP--;
-            r.PC = (m[r.SP * 2 + 1] << 8) | m[r.SP * 2];
+            r.PC = ((m[r.SP * 2 + 1] << 8) | m[r.SP * 2]);
         },
         "1XXX": (code) => {
-            r.PC = (code & 0x0FFF) - 2;
+            r.PC = (code & 0x0FFF);
         },
         "2XXX": (code) => {
             m[r.SP * 2] = (r.PC & 0x00FF);
             m[r.SP * 2 + 1] = (r.PC & 0xFF00) >> 8;
-            r.PC = (code & 0x0FFF) - 2;
+            r.PC = (code & 0x0FFF);
             r.SP++;
 		},
 		"3XXX": (code) => r.PC += v[(code & 0x0F00) >> 8] !== (code & 0x00FF) ? 0 : 2,
@@ -72,69 +72,56 @@ export const defineInstructions = (r, m, d, v, f) => {
 		"6XXX": (code) => v[(code & 0x0F00) >> 8] = (code & 0x00FF),
 		"7XXX": (code) => v[(code & 0x0F00) >> 8] += (code & 0x00FF),
 		"8XXX": (code) => {
-			const vx = (code & 0x0F00) >> 8;
-			const vy = (code & 0x00F0) >> 4;
+			const x = (code & 0x0F00) >> 8;
+			const y = (code & 0x00F0) >> 4;
 			const op = code & 0x000F;
-
-			let before;
 
 			switch (op) {
 				case 0x0:
-					v[vx] = v[vy];
+					v[x] = v[y];
 					break;
 				case 0x1:
-					v[vx] |= v[vy];
-					if (r.S0 || r.S1) break;
-					v[0xf] = v[vx] > 0xFF ? 1 : 0;
+					v[x] |= v[y];
 					break;
 				case 0x2:
-					v[vx] &= v[vy];
-					if (r.S0 || r.S1) return; // Quirk
-					v[0xf] = v[vx] > 0xFF ? 1 : 0;
+					v[x] &= v[y];
 					break;
 				case 0x3:
-					v[vx] ^= v[vy];
-					if (r.S0 || r.S1) return; // Quirk
-					v[0xf] = v[vx] > 0xFF ? 1 : 0;
+					v[x] ^= v[y];
 					break;
 				case 0x4:
-					before = v[vx];
-					v[vx] += v[vy];
-					v[0xF] = +(v[vx] < before);
+                    v[0xF] = +(v[x] + v[y] > 0xFFF);
+					v[x] += v[y];
 					break;
 				case 0x5:
-					before = v[vx];
-					v[vx] -= v[vy];
-					v[0xF] = +(v[vx] < before);
-					break;
-				case 0x7: 
-					before = v[vy];
-					v[vx] = (v[vy] - v[vx]) & 0xFF;
-					v[0xF] = +(v[vx] < before);
+                    v[0xF] = +(v[x] > v[y]);
+					v[x] -= v[y];
 					break;
 				case 0x6:
-					v[vx] = r.S0 || r.S1 ? v[vx] : v[vy];
-					const lsb = v[vx] & 0x01;
-					v[vx] >>= 1;
-					v[vx] &= 0xFF;
-					v[0xF] = lsb;
+					v[0xF] = v[x] & 0x1;
+					v[x] = r.S0 || r.S1 ? v[x] : v[y];
+					v[x] >>= 1;
+					break;
+				case 0x7: 
+                    v[0xF] = +(v[y] > v[x]);
+					v[x] = v[y] - v[x];
 					break;
 				case 0xE:
-					v[vx] = r.S0 || r.S1 ? v[vx] : v[vy];
-					const msb = (v[vx] & 0x80) >> 7;
-					v[vx] <<= 1;
-					v[0xF] = msb
+                    v[0xF] = v[x] >> 7;
+					v[x] = r.S0 || r.S1 ? v[x] : v[y];
+					v[x] <<= 1;
 					break;
 			}
 		},
 
-		"9XX0": (code) => r.PC += v[(code & 0x0F00) >> 8] === v[(code & 0x00F0) >> 4] ? 0 : 2,
+		"9XX0": (code) => {
+            r.PC += v[(code & 0x0F00) >> 8] !== v[(code & 0x00F0) >> 4] 
+                ? 2 
+                : 0;
+        },
 		"AXXX": (code) => r.I = code & 0x0FFF,
 		"BXXX": (code) => {
-			const vx = (code & 0x0f00) >> 8;
-			const offset = r.S0 || r.S1 ? v[vx] : v[0];
-
-			r.PC = ((code & 0x0FFF) + offset) - 2;
+			r.PC = ((code & 0x0FFF) + v[0]);
 		},
 		"CXXX": (code) => v[(code & 0x0F00) >> 8] = Math.floor(Math.random() * 256) & (code & 0x00FF),
 		"DXXX": (code) => {
@@ -156,7 +143,7 @@ export const defineInstructions = (r, m, d, v, f) => {
             for (let i = 0; i < bytesToRead; i++)
 			for	(let row = 0; row < rows; row++) 
 			for (let col = 0; col < cols; col++) {
-				if (x + col >= rx) break;
+				// if (x + col + i * cols >= rx - 1) break;
 				if (y + row >= ry) break;
 
                 const xpos = (x + col + i * cols) % rx;
@@ -177,11 +164,14 @@ export const defineInstructions = (r, m, d, v, f) => {
 		"FX07": (code) => v[(code & 0x0F00) >> 8] = r.D,
 		"FX15": (code) => r.D = v[(code & 0x0F00) >> 8],
 		"FX18": (code) => r.S = v[(code & 0x0F00) >> 8],
-		"FX1E": (code) => r.I += v[(code & 0x0F00) >> 8],
+		"FX1E": (code) => {
+            const x = (code & 0x0F00) >> 8;
+            v[0xF] = +(r.I + v[x] > 0xFFF);
+            r.I += v[x];
+        },
 		"FX0A": (code) => {
-			const vx = (code & 0x0F00) >> 8;
 			if (r.K === NO_KEY) r.PC -= 2;
-			v[vx] = r.K;
+			v[(code & 0x0F00) >> 8] = r.K;
 		},
 
 		"FX29": (code) => r.I = v[(code & 0x0F00) >> 8] * 5,
@@ -189,38 +179,44 @@ export const defineInstructions = (r, m, d, v, f) => {
 			const value = v[(code & 0x0F00) >> 8];
 
             m[r.I] = Math.floor(value / 100);
-            m[r.I + 1] = Math.floor((value % 100) / 10);
-            m[r.I + 2] = value % 10;
+            m[r.I + 1] = Math.floor(value / 10) % 10;
+            m[r.I + 2] = (value % 100) % 10;
 		},
 
 		"FX55": (code) => {
 			const vx = (code & 0x0F00) >> 8;
-			for (let i = 0; i <= vx; i++) m[r.I + i] = v[i];
-			if (r.S1) return; // Quirk
-			r.I += vx;
+			for (let i = 0; i <= vx; i++) {
+                m[r.I + i] = v[i];
+			    if (r.S1 || r.S0) continue; // Quirk
+                r.I += v[i];
+            }
 		},
 
 		"FX65": (code) => {
 			const vx = (code & 0x0F00) >> 8;
-			for (let i = 0; i <= vx; i++) v[i] = m[r.I + i];
-			if (r.S1) return; // Quirk
-			r.I += vx;
+			for (let i = 0; i <= vx; i++) {
+                v[i] = m[r.I + i];
+			    if (r.S1 || r.S0) continue; // Quirk
+                r.I += m[r.I + i];
+            }
 		},
 		
 		// SUPER-CHIP instructions
-		"00FD": () => r.EX = 1,
+		"00FD": () => (r.EX = 1, r.S0 = 1),
 		"00FE": () => (r.HR = 0, r.S0 = 1),
 		"00FF": () => (r.HR = 1, r.S0 = 1),
 		"FX75": (code) => {
 			const vx = (code & 0x0F00) >> 8;
 			for (let i = 0; i <= vx; i++) f[i] = v[i];
-			r.I += vx + 1;
+			r.I += vx;
+            r.S0 = 1;
 		},
 
 		"FX85": (code) => {
 			const vx = (code & 0x0F00) >> 8;
 			for (let i = 0; i <= vx; i++) v[i] = f[i];
-			r.I += vx + 1;
+			r.I += vx;
+            r.S0 = 1;
 		},
 
 		// SUPER-CHIP 1.1 instructions
@@ -233,7 +229,10 @@ export const defineInstructions = (r, m, d, v, f) => {
 
 		"00FB": () => scrollBuffer(4, 0),
 		"00FC": () => scrollBuffer(-4, 0),
-		"FX30": (code) => (r.I = (v[(code & 0x0F00) >> 8] & 0x0F) * 10, r.S1 = 1),
+		"FX30": (code) => {
+            r.I = (v[(code & 0x0F00) >> 8] & 0x0F) * 10;
+            r.S1 = 1;
+        },
 		"5XX2": (code) => {
 			const x = (code & 0x0F00) >> 8;
 			const y = (code & 0x00F0) >> 4;

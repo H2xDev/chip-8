@@ -70,7 +70,7 @@ const showProgram = (url) => fetch(url)
 				for (let i = 0; i < buffer.length; i++) {
                     const y = Math.floor(i / canvas.width);
                     const pcolor = y % 2 ? 1.0 : 0.9;
-                    const pixel = (display[i] ? 255 : 30) * pcolor;
+                    const pixel = (!display[i] ? 255 : 30) * pcolor;
 					data[i * 4] = pixel;
 					data[i * 4 + 1] = pixel;
 					data[i * 4 + 2] = pixel;
@@ -82,4 +82,4 @@ const showProgram = (url) => fetch(url)
 		});
 	});
 
-showProgram('./examples/danm8ku.ch8');
+showProgram('./examples/eaty.ch8');

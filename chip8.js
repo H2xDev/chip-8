@@ -156,13 +156,14 @@ export class Chip8 {
 		if (!instructionKey)
 			throw new Error(`Unknown instruction: 0x${codeStr} at address 0x${this.registers.PC.toString(16)}`);
 
+		this.registers.PC += 2;
 		// console.log(`Executing instruction: 0x${codeStr} at address 0x${this.registers.PC.toString(16)}`);
 		this.instructions[instructionKey](code);
-		this.registers.PC += 2;
 
-        if (!used.includes(instructionKey)) {
+        //if (!used.includes(instructionKey)) {
+        if (instructionKey.startsWith('8X')) {
             used.push(instructionKey);
-            console.log(`Used instruction: ${instructionKey}`);
+            console.log(`Used instruction: ${instructionKey} ${codeStr}`);
         }
 
 		if (this.registers.RD) {
